@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>班級放學路隊動態管理面板</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800">
+
+  <div id="app" class="p-4 md:p-6 max-w-7xl mx-auto">
+    <header class="bg-white rounded-2xl shadow-sm p-4 mb-6 border border-slate-200">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <span>🏫</span> 放學路隊即時點名面板
+          </h1>
+          <p class="text-xs text-slate-500 mt-1">
+            今日：{{ currentDateStr }}（星期{{ weekDayText }}）
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <input 
+            v-model="searchQuery" 
+            type="text" 
+            placeholder="搜尋學生姓名或座號..."
+            class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+          <button 
+            @click="fetchData" 
+            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center gap-1"
+          >
+            <span>🔄</span> 更新資料
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div 
+        v-for="route in routes" 
+        :key="route.id"
+        class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-180px)]"
+      >
+        <div :class="['p-3.5 border-b font-bold flex justify-between items-center rounded-t-xl', route.headerBg]">
+          <div class="flex items-center gap-1.5">
+            <span class="text-lg">{{ route.icon }}</span>
+            <span class="text-slate-800">{{ route.name }}</span>
+          </div>
+          <span class="bg-white/80 px-2.5 py-0.5 rounded-full text-xs font-semibold text-slate-700 shadow-inner">
+            {{ getRouteStudents(route.id).length }} 人
+          </span>
+        </div>
+
+        <div class="p-3 overflow-y-auto space-y-2.5 flex-1">
+          <div 
+            v-for="student in getRouteStudents(route.id)" 
+            :key="student.id"
+            @click="toggleChecked(student)"
+            :class="[
+              'p-3 rounded-lg border transition-all cursor-pointer relative select-none',
+              student.isChecked ? 'bg-slate-50 border-slate-200 opacity-50' : 'bg-white border-slate-200 hover:border-indigo-300 shadow-sm',
+              student.isOverride ? 'ring-2 ring-amber-400 bg-amber-50/50' : ''
+            ]"
+          >
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  {{ String(student.seat).padStart(2, '0') }}
+                </span>
+                <span class="font-bold text-slate-800 text-base" :class="{ 'line-through': student.isChecked }">
+                  {{ student.name }}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <span v-if="student.isLeader" class="bg-rose-100 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                  路隊長
+                </span>
+                <span v-if="student.isOverride" class="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse">
+                  今日異動
+                </span>
+              </div>
+            </div>
+
+            <div v-if="student.afterSchoolName" class="text-xs text-slate-600 mt-2 bg-slate-50 p-1.5 rounded border border-slate-100">
+              <div class="font-medium text-indigo-700">🏢 {{ student.afterSchoolName }}</div>
+              <div v-if="student.phone" class="text-slate-400 text-[11px]">📞 {{ student.phone }}</div>
+            </div>
+
+            <div v-if="student.isOverride && student.overrideNote" class="text-xs text-amber-800 font-medium mt-1.5">
+              ⚠️ 說明：{{ student.overrideNote }}
+            </div>
+          </div>
+
+          <div v-if="getRouteStudents(route.id).length === 0" class="text-center py-8 text-xs text-slate-400">
+            此路隊暫無學生
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const searchQuery = ref('');
+        
+        // 四大路隊定義
+        const routes = [
+          { id: 'R1', name: '第一路隊 (大門)', icon: '🚪', headerBg: 'bg-blue-100 text-blue-900' },
+          { id: 'R2', name: '第二路隊 (後門)', icon: '🌲', headerBg: 'bg-emerald-100 text-emerald-900' },
+          { id: 'R3', name: '第三路隊 (側門)', icon: '🚌', headerBg: 'bg-amber-100 text-amber-900' },
+          { id: 'R4', name: '第四路隊 (校內/社團)', icon: '🎨', headerBg: 'bg-purple-100 text-purple-900' }
+        ];
+
+        // 模擬學生資料 (未來可直接透過 fetch 換成 GAS 回傳的 JSON)
+        const students = ref([
+          { id: 1, seat: 1, name: '林小明', routeId: 'R1', isLeader: true, isChecked: false, isOverride: false, afterSchoolName: '', phone: '' },
+          { id: 2, seat: 2, name: '陳美玲', routeId: 'R3', isLeader: false, isChecked: false, isOverride: false, afterSchoolName: '長春藤美語', phone: '07-1234567' },
+          { id: 3, seat: 3, name: '張大華', routeId: 'R1', isLeader: false, isChecked: false, isOverride: true, overrideNote: '今日阿公親接，改第一路隊', afterSchoolName: '', phone: '' },
+          { id: 4, seat: 4, name: '黃怡君', routeId: 'R2', isLeader: true, isChecked: false, isOverride: false, afterSchoolName: '', phone: '' },
+          { id: 5, seat: 5, name: '蔡宗翰', routeId: 'R4', isLeader: false, isChecked: false, isOverride: false, afterSchoolName: '校內桌球社', phone: '' },
+          { id: 6, seat: 6, name: '許家豪', routeId: 'R3', isLeader: false, isChecked: false, isOverride: false, afterSchoolName: '高昇補習班', phone: '07-7654321' },
+        ]);
+
+        // 計算日期字串
+        const today = new Date();
+        const currentDateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekDayText = weekDays[today.getDay()];
+
+        // 依路隊與關鍵字篩選學生
+        const getRouteStudents = (routeId) => {
+          return students.value.filter(s => {
+            const matchesRoute = s.routeId === routeId;
+            const matchesSearch = s.name.includes(searchQuery.value) || String(s.seat).includes(searchQuery.value);
+            return matchesRoute && matchesSearch;
+          });
+        };
+
+        // 點擊卡片標示完成/取消標示
+        const toggleChecked = (student) => {
+          student.isChecked = !student.isChecked;
+        };
+
+        // 模擬連線至 Google Apps Script 抓取 API
+        const fetchData = async () => {
+          /* // 實際介接範例：
+          const GAS_API_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+          const res = await fetch(GAS_API_URL);
+          const data = await res.json();
+          students.value = data;
+          */
+          alert('即將從 Google Sheets / Apps Script 同步最新放學名單！');
+        };
+
+        return {
+          routes,
+          students,
+          searchQuery,
+          currentDateStr,
+          weekDayText,
+          getRouteStudents,
+          toggleChecked,
+          fetchData
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
