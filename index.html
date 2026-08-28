@@ -37,7 +37,7 @@
         </div>
       </section>
 
-      <!-- 區段二：上學方式 (已加上主要方式提示) -->
+      <!-- 區段二：上學方式 -->
       <section class="space-y-4">
         <h2 class="font-bold text-lg border-l-4 border-emerald-500 pl-2 text-slate-700 flex items-baseline gap-1">
           上學通勤方式 
@@ -109,7 +109,7 @@
 
     <!-- 底部送出區塊 -->
     <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur border-t border-slate-200 p-4">
-      <button @click="submitForm" :disabled="!isFormValid" :class="['w-full py-3.5 rounded-xl font-bold text-lg shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2', isFormValid ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed']">
+      <button @click="submitForm" id="submitBtn" :disabled="!isFormValid" :class="['w-full py-3.5 rounded-xl font-bold text-lg shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2', isFormValid ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed']">
         <span>送出資料</span>
         <svg v-if="isFormValid" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
       </button>
@@ -178,8 +178,29 @@
             payload.schedule = { ...form.value.daily };
           }
 
-          console.log('準備送出至 GAS API:', JSON.stringify(payload, null, 2));
-          alert('資料已成功送出！');
+          // ⚠️ 請將下方的網址替換為您從 Apps Script 發布後取得的 Web App URL
+          const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/您的專屬ID/exec'; 
+          
+          try {
+            const btn = document.getElementById('submitBtn');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '資料傳送中...';
+            btn.disabled = true;
+
+            await fetch(GAS_WEBHOOK_URL, {
+              method: 'POST',
+              body: JSON.stringify(payload),
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' } // 使用 text/plain 避免跨網域預檢(CORS preflight)阻擋
+            });
+
+            alert('資料已成功送出！感謝您的填寫。');
+            window.location.reload(); // 送出成功後重整頁面，清空表單
+          } catch (error) {
+            alert('傳送失敗，請確認網路連線或稍後再試。');
+            const btn = document.getElementById('submitBtn');
+            btn.innerHTML = '送出資料';
+            btn.disabled = false;
+          }
         };
 
         return { form, morningOptions, routeOptions, days, needsCareInfo, isFormValid, submitForm };
