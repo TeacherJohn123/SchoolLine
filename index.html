@@ -2,173 +2,195 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>班級放學路隊動態管理面板</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>文華國小 路隊與通勤方式調查</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    /* 隱藏預設捲軸，讓手機端畫面更俐落 */
+    ::-webkit-scrollbar { display: none; }
+    body { -webkit-tap-highlight-color: transparent; }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800">
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-100">
 
-  <div id="app" class="p-4 md:p-6 max-w-7xl mx-auto">
-    <header class="bg-white rounded-2xl shadow-sm p-4 mb-6 border border-slate-200">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <span>🏫</span> 放學路隊即時點名面板
-          </h1>
-          <p class="text-xs text-slate-500 mt-1">
-            今日：{{ currentDateStr }}（星期{{ weekDayText }}）
-          </p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-3">
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="搜尋學生姓名或座號..."
-            class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-          <button 
-            @click="fetchData" 
-            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center gap-1"
-          >
-            <span>🔄</span> 更新資料
-          </button>
-        </div>
-      </div>
+  <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-xl relative pb-20">
+    <!-- 頂部橫幅 -->
+    <header class="bg-indigo-600 text-white p-6 rounded-b-3xl shadow-md">
+      <h1 class="text-2xl font-bold tracking-wider mb-1">路隊與通勤調查</h1>
+      <p class="text-indigo-100 text-sm">115學年度 上學期</p>
     </header>
 
-    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div 
-        v-for="route in routes" 
-        :key="route.id"
-        class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-180px)]"
-      >
-        <div :class="['p-3.5 border-b font-bold flex justify-between items-center rounded-t-xl', route.headerBg]">
-          <div class="flex items-center gap-1.5">
-            <span class="text-lg">{{ route.icon }}</span>
-            <span class="text-slate-800">{{ route.name }}</span>
+    <main class="p-6 space-y-8 -mt-2">
+      <!-- 區段一：基本資料 -->
+      <section class="space-y-4">
+        <h2 class="font-bold text-lg border-l-4 border-indigo-500 pl-2 text-slate-700">基本資料</h2>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">座號</label>
+            <input v-model="form.seat" type="number" placeholder="例: 01" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
           </div>
-          <span class="bg-white/80 px-2.5 py-0.5 rounded-full text-xs font-semibold text-slate-700 shadow-inner">
-            {{ getRouteStudents(route.id).length }} 人
-          </span>
-        </div>
-
-        <div class="p-3 overflow-y-auto space-y-2.5 flex-1">
-          <div 
-            v-for="student in getRouteStudents(route.id)" 
-            :key="student.id"
-            @click="toggleChecked(student)"
-            :class="[
-              'p-3 rounded-lg border transition-all cursor-pointer relative select-none',
-              student.isChecked ? 'bg-slate-50 border-slate-200 opacity-50' : 'bg-white border-slate-200 hover:border-indigo-300 shadow-sm',
-              student.isOverride ? 'ring-2 ring-amber-400 bg-amber-50/50' : ''
-            ]"
-          >
-            <div class="flex items-center justify-between mb-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                  {{ String(student.seat).padStart(2, '0') }}
-                </span>
-                <span class="font-bold text-slate-800 text-base" :class="{ 'line-through': student.isChecked }">
-                  {{ student.name }}
-                </span>
-              </div>
-
-              <div class="flex items-center gap-1">
-                <span v-if="student.isLeader" class="bg-rose-100 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                  路隊長
-                </span>
-                <span v-if="student.isOverride" class="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse">
-                  今日異動
-                </span>
-              </div>
-            </div>
-
-            <div v-if="student.afterSchoolName" class="text-xs text-slate-600 mt-2 bg-slate-50 p-1.5 rounded border border-slate-100">
-              <div class="font-medium text-indigo-700">🏢 {{ student.afterSchoolName }}</div>
-              <div v-if="student.phone" class="text-slate-400 text-[11px]">📞 {{ student.phone }}</div>
-            </div>
-
-            <div v-if="student.isOverride && student.overrideNote" class="text-xs text-amber-800 font-medium mt-1.5">
-              ⚠️ 說明：{{ student.overrideNote }}
-            </div>
-          </div>
-
-          <div v-if="getRouteStudents(route.id).length === 0" class="text-center py-8 text-xs text-slate-400">
-            此路隊暫無學生
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">學生姓名</label>
+            <input v-model="form.name" type="text" placeholder="真實姓名" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
           </div>
         </div>
-      </div>
+      </section>
+
+      <!-- 區段二：上學方式 -->
+      <section class="space-y-4">
+        <h2 class="font-bold text-lg border-l-4 border-emerald-500 pl-2 text-slate-700">上學通勤方式</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <label v-for="method in morningOptions" :key="method" :class="['border rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center gap-1', form.morning === method ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-1 ring-emerald-500' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50']">
+            <input type="radio" v-model="form.morning" :value="method" class="hidden">
+            <span class="font-medium">{{ method }}</span>
+          </label>
+        </div>
+      </section>
+
+      <hr class="border-slate-100">
+
+      <!-- 區段三：放學方式分流 -->
+      <section class="space-y-4">
+        <h2 class="font-bold text-lg border-l-4 border-amber-500 pl-2 text-slate-700">放學路隊設定</h2>
+        <p class="text-sm text-slate-500">請問孩子一週五天的放學方式都相同嗎？</p>
+        
+        <div class="flex bg-slate-100 p-1 rounded-xl">
+          <button @click="form.isSameEveryday = true" :class="['flex-1 py-2 rounded-lg text-sm font-bold transition', form.isSameEveryday ? 'bg-white shadow text-indigo-600' : 'text-slate-400']">
+            是的，每天都一樣
+          </button>
+          <button @click="form.isSameEveryday = false" :class="['flex-1 py-2 rounded-lg text-sm font-bold transition', !form.isSameEveryday ? 'bg-white shadow text-indigo-600' : 'text-slate-400']">
+            不是，每天不同
+          </button>
+        </div>
+
+        <!-- 模式 A：每天相同 -->
+        <div v-if="form.isSameEveryday" class="animate-[fadeIn_0.3s_ease-out] space-y-4 mt-4">
+          <div class="space-y-2">
+            <label v-for="route in routeOptions" :key="route.id" :class="['block border rounded-xl p-4 cursor-pointer transition', form.unified.route === route.name ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400' : 'bg-white border-slate-200']">
+              <input type="radio" v-model="form.unified.route" :value="route.name" class="hidden">
+              <div class="font-bold text-slate-800">{{ route.name }}</div>
+              <div class="text-xs text-slate-500 mt-1">{{ route.desc }}</div>
+            </label>
+          </div>
+          
+          <div v-if="needsCareInfo(form.unified.route)" class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 space-y-3">
+            <label class="block text-sm font-bold text-indigo-800">安親班/補習班資訊</label>
+            <input v-model="form.unified.careName" type="text" placeholder="安親班名稱" class="w-full bg-white border border-indigo-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400">
+            <input v-model="form.unified.carePhone" type="tel" placeholder="聯絡電話" class="w-full bg-white border border-indigo-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400">
+          </div>
+        </div>
+
+        <!-- 模式 B：每天不同 (逐日填寫) -->
+        <div v-else class="animate-[fadeIn_0.3s_ease-out] space-y-6 mt-4">
+          <div v-for="(day, index) in days" :key="day.key" class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 flex justify-between items-center">
+              {{ day.label }}
+              <span v-if="form.daily[day.key].route" class="text-xs text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">已選擇</span>
+            </div>
+            <div class="p-4 space-y-3">
+              <select v-model="form.daily[day.key].route" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:outline-none focus:border-indigo-500 appearance-none">
+                <option value="" disabled>請選擇路隊...</option>
+                <option v-for="route in routeOptions" :key="route.id" :value="route.name">{{ route.name }}</option>
+              </select>
+
+              <div v-if="needsCareInfo(form.daily[day.key].route)" class="grid grid-cols-2 gap-2 mt-2">
+                <input v-model="form.daily[day.key].careName" type="text" placeholder="安親班名稱" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                <input v-model="form.daily[day.key].carePhone" type="tel" placeholder="聯絡電話" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
+
+    <!-- 底部送出區塊 -->
+    <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur border-t border-slate-200 p-4">
+      <button @click="submitForm" :disabled="!isFormValid" :class="['w-full py-3.5 rounded-xl font-bold text-lg shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2', isFormValid ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed']">
+        <span>送出資料</span>
+        <svg v-if="isFormValid" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+      </button>
+    </div>
   </div>
 
   <script>
-    const { createApp, ref, computed, onMounted } = Vue;
+    const { createApp, ref, computed } = Vue;
 
     createApp({
       setup() {
-        const searchQuery = ref('');
-        
-        // 四大路隊定義
-        const routes = [
-          { id: 'R1', name: '第一路隊 (大門)', icon: '🚪', headerBg: 'bg-blue-100 text-blue-900' },
-          { id: 'R2', name: '第二路隊 (後門)', icon: '🌲', headerBg: 'bg-emerald-100 text-emerald-900' },
-          { id: 'R3', name: '第三路隊 (側門)', icon: '🚌', headerBg: 'bg-amber-100 text-amber-900' },
-          { id: 'R4', name: '第四路隊 (校內/社團)', icon: '🎨', headerBg: 'bg-purple-100 text-purple-900' }
+        const morningOptions = ['搭乘公車', '家長機車接送', '家長汽車接送', '步行到校'];
+        const routeOptions = [
+          { id: 'R1', name: '第一路隊 (大門)', desc: '自行走路、前門家長接送、5人以下安親班' },
+          { id: 'R2', name: '第二路隊 (後門)', desc: '自行走路、後門家長接送' },
+          { id: 'R3', name: '第三路隊 (側門)', desc: '5人以上校外安親班、側門家長接送' },
+          { id: 'R4', name: '第四路隊', desc: '校內安親班、課後社團' }
+        ];
+        const days = [
+          { key: 'mon', label: '星期一' }, { key: 'tue', label: '星期二' },
+          { key: 'wed', label: '星期三' }, { key: 'thu', label: '星期四' }, { key: 'fri', label: '星期五' }
         ];
 
-        // 模擬學生資料 (未來可直接透過 fetch 換成 GAS 回傳的 JSON)
-        const students = ref([
-          { id: 1, seat: 1, name: '林小明', routeId: 'R1', isLeader: true, isChecked: false, isOverride: false, afterSchoolName: '', phone: '' },
-          { id: 2, seat: 2, name: '陳美玲', routeId: 'R3', isLeader: false, isChecked: false, isOverride: false, afterSchoolName: '長春藤美語', phone: '07-1234567' },
-          { id: 3, seat: 3, name: '張大華', routeId: 'R1', isLeader: false, isChecked: false, isOverride: true, overrideNote: '今日阿公親接，改第一路隊', afterSchoolName: '', phone: '' },
-          { id: 4, seat: 4, name: '黃怡君', routeId: 'R2', isLeader: true, isChecked: false, isOverride: false, afterSchoolName: '', phone: '' },
-          { id: 5, seat: 5, name: '蔡宗翰', routeId: 'R4', isLeader: false, isChecked: false, isOverride: false, afterSchoolName: '校內桌球社', phone: '' },
-          { id: 6, seat: 6, name: '許家豪', routeId: 'R3', isLeader: false, isChecked: false, isOverride: false, afterSchoolName: '高昇補習班', phone: '07-7654321' },
-        ]);
+        const form = ref({
+          seat: '',
+          name: '',
+          morning: '',
+          isSameEveryday: true,
+          unified: { route: '', careName: '', carePhone: '' },
+          daily: {
+            mon: { route: '', careName: '', carePhone: '' },
+            tue: { route: '', careName: '', carePhone: '' },
+            wed: { route: '', careName: '', carePhone: '' },
+            thu: { route: '', careName: '', carePhone: '' },
+            fri: { route: '', careName: '', carePhone: '' }
+          }
+        });
 
-        // 計算日期字串
-        const today = new Date();
-        const currentDateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
-        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-        const weekDayText = weekDays[today.getDay()];
+        // 判斷是否需要填寫安親班 (第一、三、四路隊通常涉及安親班/社團)
+        const needsCareInfo = (routeName) => {
+          if (!routeName) return false;
+          return routeName.includes('第一路隊') || routeName.includes('第三路隊') || routeName.includes('第四路隊');
+        };
 
-        // 依路隊與關鍵字篩選學生
-        const getRouteStudents = (routeId) => {
-          return students.value.filter(s => {
-            const matchesRoute = s.routeId === routeId;
-            const matchesSearch = s.name.includes(searchQuery.value) || String(s.seat).includes(searchQuery.value);
-            return matchesRoute && matchesSearch;
+        // 簡單的表單驗證邏輯
+        const isFormValid = computed(() => {
+          if (!form.value.seat || !form.value.name || !form.value.morning) return false;
+          if (form.value.isSameEveryday) {
+            return !!form.value.unified.route;
+          } else {
+            return days.every(day => !!form.value.daily[day.key].route);
+          }
+        });
+
+        const submitForm = async () => {
+          // 整理最終資料格式，方便後端處理成五天矩陣
+          const payload = {
+            seat: form.value.seat,
+            name: form.value.name,
+            morningCommute: form.value.morning,
+            schedule: {}
+          };
+
+          if (form.value.isSameEveryday) {
+            days.forEach(day => {
+              payload.schedule[day.key] = { ...form.value.unified };
+            });
+          } else {
+            payload.schedule = { ...form.value.daily };
+          }
+
+          console.log('準備送出至 GAS API:', JSON.stringify(payload, null, 2));
+          alert('資料已成功送出！');
+          
+          /* 實際介接 GAS 的寫法
+          const GAS_WEBHOOK_URL = '您的_doPost_URL';
+          await fetch(GAS_WEBHOOK_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
           });
-        };
-
-        // 點擊卡片標示完成/取消標示
-        const toggleChecked = (student) => {
-          student.isChecked = !student.isChecked;
-        };
-
-        // 模擬連線至 Google Apps Script 抓取 API
-        const fetchData = async () => {
-          /* // 實際介接範例：
-          const GAS_API_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
-          const res = await fetch(GAS_API_URL);
-          const data = await res.json();
-          students.value = data;
           */
-          alert('即將從 Google Sheets / Apps Script 同步最新放學名單！');
         };
 
-        return {
-          routes,
-          students,
-          searchQuery,
-          currentDateStr,
-          weekDayText,
-          getRouteStudents,
-          toggleChecked,
-          fetchData
-        };
+        return { form, morningOptions, routeOptions, days, needsCareInfo, isFormValid, submitForm };
       }
     }).mount('#app');
   </script>
