@@ -37,9 +37,12 @@
         </div>
       </section>
 
-      <!-- 區段二：上學方式 -->
+      <!-- 區段二：上學方式 (已加上主要方式提示) -->
       <section class="space-y-4">
-        <h2 class="font-bold text-lg border-l-4 border-emerald-500 pl-2 text-slate-700">上學通勤方式</h2>
+        <h2 class="font-bold text-lg border-l-4 border-emerald-500 pl-2 text-slate-700 flex items-baseline gap-1">
+          上學通勤方式 
+          <span class="text-sm font-normal text-slate-400">(選擇主要方式即可)</span>
+        </h2>
         <div class="grid grid-cols-2 gap-3">
           <label v-for="method in morningOptions" :key="method" :class="['border rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center gap-1', form.morning === method ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-1 ring-emerald-500' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50']">
             <input type="radio" v-model="form.morning" :value="method" class="hidden">
@@ -145,13 +148,11 @@
           }
         });
 
-        // 判斷是否需要填寫安親班 (第一、三、四路隊通常涉及安親班/社團)
         const needsCareInfo = (routeName) => {
           if (!routeName) return false;
           return routeName.includes('第一路隊') || routeName.includes('第三路隊') || routeName.includes('第四路隊');
         };
 
-        // 簡單的表單驗證邏輯
         const isFormValid = computed(() => {
           if (!form.value.seat || !form.value.name || !form.value.morning) return false;
           if (form.value.isSameEveryday) {
@@ -162,7 +163,6 @@
         });
 
         const submitForm = async () => {
-          // 整理最終資料格式，方便後端處理成五天矩陣
           const payload = {
             seat: form.value.seat,
             name: form.value.name,
@@ -180,14 +180,6 @@
 
           console.log('準備送出至 GAS API:', JSON.stringify(payload, null, 2));
           alert('資料已成功送出！');
-          
-          /* 實際介接 GAS 的寫法
-          const GAS_WEBHOOK_URL = '您的_doPost_URL';
-          await fetch(GAS_WEBHOOK_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-          */
         };
 
         return { form, morningOptions, routeOptions, days, needsCareInfo, isFormValid, submitForm };
