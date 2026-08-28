@@ -178,8 +178,8 @@
             payload.schedule = { ...form.value.daily };
           }
 
-          // ⚠️ 請將下方的網址替換為您從 Apps Script 發布後取得的 Web App URL
-          const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/您的專屬ID/exec'; 
+          // 已經為您替換上專屬的 GAS Web App URL
+          const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwy0BApItnOFd0RrlzET6MgElTEgOcai6IYZSfhC5S3PXJQc5kVK_M0-O5qeFZEVLCk/exec'; 
           
           try {
             const btn = document.getElementById('submitBtn');
@@ -190,11 +190,11 @@
             await fetch(GAS_WEBHOOK_URL, {
               method: 'POST',
               body: JSON.stringify(payload),
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' } // 使用 text/plain 避免跨網域預檢(CORS preflight)阻擋
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' }
             });
 
             alert('資料已成功送出！感謝您的填寫。');
-            window.location.reload(); // 送出成功後重整頁面，清空表單
+            window.location.reload(); 
           } catch (error) {
             alert('傳送失敗，請確認網路連線或稍後再試。');
             const btn = document.getElementById('submitBtn');
