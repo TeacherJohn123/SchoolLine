@@ -187,10 +187,11 @@
             btn.innerHTML = '資料傳送中...';
             btn.disabled = true;
 
-            await fetch(GAS_WEBHOOK_URL, {
+           await fetch(GAS_WEBHOOK_URL, {
               method: 'POST',
               body: JSON.stringify(payload),
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              mode: 'no-cors' // 突破 Google 的強制轉址與跨域限制
             });
 
             alert('資料已成功送出！感謝您的填寫。');
